@@ -23,15 +23,22 @@ EDINET_KEY = os.environ["EDINET_KEY"]
 ws_codes = get_sheet("SEC_CODE_LIST")
 codes = {r["secCode"] for r in ws_codes.get_all_records()}
 
+# ヘッダーに API キーを設定
+HEADERS = {
+    "X-API-KEY": EDINET_KEY
+}
+
 # ── EDINET 書類一覧取得 ──
 params = {
     "date": TODAY,
-    "type": "2",                # 有価証券報告書／四半期報告書
-    "Subscription-Key": EDINET_KEY
+    "type": "2",  # 有価証券報告書／四半期報告書
 }
-resp = requests.get(f"{BASE_URL}/documents.json", params=params)
+resp = requests.get(f"{BASE_URL}/documents.json", params=params, headers=HEADERS)
 print(f"[EDINET] status_code = {resp.status_code}")
 print(f"[EDINET] body preview = {resp.text[:200]!r}")
+
+# ステータスチェック
+resp.raise_for_status()
 
 # JSON パース
 data = resp.json()
@@ -46,12 +53,15 @@ targets = [
 records = []
 for d in targets:
     doc_id = d["docID"]
+
     # ZIP ダウンロード
     zip_resp = requests.get(
         f"{BASE_URL}/documents/{doc_id}",
-        params={"type": "5", "Subscription-Key": EDINET_KEY}
+        params={"type": "5"},
+        headers=HEADERS
     )
     zip_resp.raise_for_status()
+
     with zipfile.ZipFile(io.BytesIO(zip_resp.content)) as z:
         inst_file = next(name for name in z.namelist() if name.endswith(".xbrl"))
         xbrl_text = z.read(inst_file).decode("utf-8", "ignore")
@@ -62,22 +72,18 @@ for d in targets:
         return float(m.group(1)) if m else None
 
     rec = {
-        "docID": doc_id,
-        "secCode": d.get("secCode", ""),
-        "submitDate": d.get("submitDateTime", "")[:10],
-        "fy": d.get("fiscalYear", ""),
-        "fq": d.get("fiscalPeriod", ""),
-        "Revenue": grab("jpcrp_cor:NetSales") or grab("ifrs-full:Revenue"),
+        "docID":         doc_id,
+        "secCode":       d.get("secCode", ""),
+        "submitDate":    d.get("submitDateTime", "")[:10],
+        "fy":            d.get("fiscalYear", ""),
+        "fq":            d.get("fiscalPeriod", ""),
+        "Revenue":       grab("jpcrp_cor:NetSales") or grab("ifrs-full:Revenue"),
         "OperatingIncome": grab("jpcrp_cor:OperatingIncome") or grab("ifrs-full:OperatingProfit"),
-        "OrdinaryIncome": grab("jpcrp_cor:OrdinaryIncome"),
-        "ProfitParent": (
-            grab("jpcrp_cor:ProfitAttributableToOwnersOfParent")
-            or grab("ifrs-full:ProfitLoss")
-        ),
-        "EPS": (
-            grab("jpcrp_cor:EarningsPerShare")
-            or grab("ifrs-full:BasicEarningsLossPerShare")
-        ),
+        "OrdinaryIncome":  grab("jpcrp_cor:OrdinaryIncome"),
+        "ProfitParent":    (grab("jpcrp_cor:ProfitAttributableToOwnersOfParent")
+                            or grab("ifrs-full:ProfitLoss")),
+        "EPS":             (grab("jpcrp_cor:EarningsPerShare")
+                            or grab("ifrs-full:BasicEarningsLossPerShare")),
     }
     records.append(rec)
 
