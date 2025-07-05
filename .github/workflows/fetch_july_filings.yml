@@ -1,3 +1,5 @@
+# .github/workflows/fetch_july_filings.yml
+
 name: Fetch July EDINET Filings
 on:
   workflow_dispatch:
@@ -23,4 +25,5 @@ jobs:
       - name: Fetch and Parse July Filings
         run: python fetch_july_filings.py
         env:
-          EDINET_KEY: ${{ secrets.EDINET_KEY }}
+          EDINET_KEY:   ${{ secrets.EDINET_KEY }}
+          GSHEET_JSON:  ${{ secrets.GSHEET_JSON }}
