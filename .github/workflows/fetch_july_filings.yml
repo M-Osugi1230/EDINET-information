@@ -1,0 +1,26 @@
+name: Fetch July EDINET Filings
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 22 * * *'   # 毎日22:00 UTC (JST 07:00) 実行。必要に応じて変更してください
+
+jobs:
+  fetch_july:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Fetch and Parse July Filings
+        run: python fetch_july_filings.py
+        env:
+          EDINET_KEY: ${{ secrets.EDINET_KEY }}
