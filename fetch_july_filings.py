@@ -12,6 +12,7 @@ import re
 import requests
 import pandas as pd
 from dateutil import rrule, tz
+from typing import Optional
 
 # ── 設定 ──
 EDINET_KEY = os.environ.get("EDINET_KEY")
@@ -25,11 +26,14 @@ TAGS = {
     "Revenue": ["jpcrp_cor:NetSales", "ifrs-full:Revenue"],
     "OperatingIncome": ["jpcrp_cor:OperatingIncome", "ifrs-full:OperatingProfit"],
     "OrdinaryIncome": ["jpcrp_cor:OrdinaryIncome"],
-    "ProfitParent": ["jpcrp_cor:ProfitAttributableToOwnersOfParent", "ifrs-full:ProfitLoss"],
+    "ProfitParent": [
+        "jpcrp_cor:ProfitAttributableToOwnersOfParent",
+        "ifrs-full:ProfitLoss"
+    ],
     "EPS": ["jpcrp_cor:EarningsPerShare", "ifrs-full:BasicEarningsLossPerShare"],
 }
 
-def grab_value(xbrl: str, tags: list[str]) -> float | None:
+def grab_value(xbrl: str, tags: list[str]) -> Optional[float]:
     """複数候補タグから順に検索し、最初にマッチした数値を返す"""
     for tag in tags:
         m = re.search(fr"<{tag}[^>]*>([\d\.\-]+)</{tag}>", xbrl)
@@ -39,7 +43,7 @@ def grab_value(xbrl: str, tags: list[str]) -> float | None:
 
 def fetch_and_parse(doc: dict) -> dict:
     """単一ドキュメントをZIP→XBRLパースし、主要指標を返す"""
-    doc_id = doc["docID"]
+    doc_id = doc.get("docID")
     resp = requests.get(
         f"{BASE_URL}/documents/{doc_id}",
         params={"type": 5, "Subscription-Key": EDINET_KEY},
@@ -61,7 +65,7 @@ def fetch_and_parse(doc: dict) -> dict:
         rec[key] = grab_value(xbrl, tags)
     return rec
 
-def main():
+if __name__ == '__main__':
     records = []
     start = datetime.datetime(2025, 7, 1, tzinfo=JST)
     end   = datetime.datetime(2025, 7, 31, tzinfo=JST)
@@ -74,20 +78,16 @@ def main():
             timeout=30
         )
         resp.raise_for_status()
-        data = resp.json()
-        docs = data.get("results", [])
+        docs = resp.json().get("results", [])
         xbrl_targets = [d for d in docs if d.get("xbrlFlag") == "1"]
         print(f"  Found {len(docs)} docs, XBRL={len(xbrl_targets)}")
         for d in xbrl_targets:
             try:
                 records.append(fetch_and_parse(d))
             except Exception as e:
-                print(f"  ⚠️ Error processing {d['docID']}: {e}")
+                print(f"  ⚠️ Error processing {d.get('docID')}: {e}")
 
     df = pd.DataFrame(records)
     print(f"\nTotal records: {len(df)}")
     if not df.empty:
         print(df.head(10).to_string(index=False))
-
-if __name__ == "__main__":
-    main()
