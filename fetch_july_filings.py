@@ -91,3 +91,30 @@ if __name__ == '__main__':
     print(f"\nTotal records: {len(df)}")
     if not df.empty:
         print(df.head(10).to_string(index=False))
+
+    # ── Google Sheets へ書き込み ──
+    import json
+    import gspread
+    from oauth2client.service_account import ServiceAccountCredentials
+
+    SCOPES = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        json.loads(os.environ.get("GSHEET_JSON", "")), SCOPES
+    )
+    client = gspread.authorize(creds)
+    ss = client.open("EDINET_MONITOR")
+    sheet_name = "JULY_FILINGS"
+    try:
+        ws = ss.worksheet(sheet_name)
+        ws.clear()
+    except gspread.WorksheetNotFound:
+        ws = ss.add_worksheet(title=sheet_name, rows=str(len(df) + 1), cols="10")
+
+    ws.update(
+        [df.columns.tolist()] + df.astype(str).values.tolist(),
+        value_input_option="USER_ENTERED"
+    )
+    print(f"✅ Google Sheets '{sheet_name}' に {len(df)} 件を書き込みました。")
