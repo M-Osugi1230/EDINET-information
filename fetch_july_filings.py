@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 """
-2025年7月中に提出されたEDINET決算書類を取得し、
+2025年6月以降に提出されたEDINET決算書類を取得し、
 XBRLから売上高・営業利益・経常利益・親会社株主帰属当期純利益・EPSを抽出、
 結果をGoogle Sheetsの「JULY_FILINGS」シートに書き込むスクリプト。
-
-── テスト仕様 ──
-・テスト実行日が2025-07-01以前の場合はExit 0で終了（取得対象なし）
-・テスト実行日が7月中であれば、7/1 ～ テスト当日までを取得
+（テスト用：6月1日～実行日までの範囲で動作）
 """
 
 import os
@@ -47,7 +44,6 @@ TAGS = {
 }
 
 def grab_value(xbrl: str, tags: list[str]) -> Optional[float]:
-    """複数候補タグから順に検索し、最初にマッチした数値を返す"""
     for tag in tags:
         m = re.search(fr"<{tag}[^>]*>([\d\.\-]+)</{tag}>", xbrl)
         if m:
@@ -55,7 +51,6 @@ def grab_value(xbrl: str, tags: list[str]) -> Optional[float]:
     return None
 
 def fetch_and_parse(doc: dict) -> dict:
-    """単一ドキュメントをZIP→XBRLパースし、主要指標を返す"""
     doc_id = doc.get("docID")
     resp = requests.get(
         f"{BASE_URL}/documents/{doc_id}",
@@ -79,16 +74,13 @@ def fetch_and_parse(doc: dict) -> dict:
     return rec
 
 if __name__ == '__main__':
-    # テスト用：実行日を基準に対象期間を動的に決定
+    # テスト用：2025年6月1日 から 実行日 まで
     today = datetime.datetime.now(JST).date()
-    start_date = datetime.date(2025, 7, 1)
-    if today < start_date:
-        print(f"【INFO】テスト実行日({today})が開始日({start_date})より前。処理なしで正常終了。")
-        exit(0)
-    end_date = min(today, datetime.date(2025, 7, 31))
+    start_date = datetime.date(2025, 6, 1)
+    end_date   = today if today >= start_date else start_date
 
-    start = datetime.datetime.combine(start_date, datetime.time(0, 0), tzinfo=JST)
-    end   = datetime.datetime.combine(end_date,   datetime.time(0, 0), tzinfo=JST)
+    start = datetime.datetime.combine(start_date, datetime.time(0,0), tzinfo=JST)
+    end   = datetime.datetime.combine(end_date,   datetime.time(0,0), tzinfo=JST)
 
     records = []
     for dt in rrule.rrule(rrule.DAILY, dtstart=start, until=end):
