@@ -74,7 +74,7 @@ def fetch_and_parse(doc: dict) -> dict:
     return rec
 
 if __name__ == '__main__':
-    # テスト用：2025年6月1日 から 実行日 まで
+    # ── テスト期間を 2025-06-01 ～ 実行日 まで ──
     today = datetime.datetime.now(JST).date()
     start_date = datetime.date(2025, 6, 1)
     end_date   = today if today >= start_date else start_date
