@@ -1,18 +1,17 @@
-# .github/workflows/fetch_july_filings.yml
+name: EDINET → Google Sheets
 
-name: Fetch July EDINET Filings
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 22 * * *'   # 毎日22:00 UTC (JST 07:00) 実行。必要に応じて変更してください
+    - cron: '30 13 * * *'   # JST 22:30 = UTC 13:30
 
 jobs:
-  fetch_july:
+  run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
@@ -22,8 +21,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Fetch and Parse July Filings
-        run: python fetch_july_filings.py
+      - name: Fetch EDINET & write to Sheets
+        run: python edinet_to_sheet.py
         env:
           EDINET_KEY:   ${{ secrets.EDINET_KEY }}
           GSHEET_JSON:  ${{ secrets.GSHEET_JSON }}
+          # 任意で上書きする場合:
+          # TARGET_DATE: 2024-05-01
+          # MAX_DOCS:    10
+          # DRY_RUN:     1
+          # SPREADSHEET_NAME: EDINET_MONITOR
+          # SHEET_NAME:       EDINET_FILINGS
